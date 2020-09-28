@@ -1,0 +1,139 @@
+syntax = "proto3";
+package light;
+
+import "yis_sdk/instruction.proto";
+import "sdk2/proto/dtypes.proto";
+import "sdk2/proto/common.proto";
+import "sdk2/proto/ops.proto";
+import "sdk2/proto/graph_types.proto";
+import "sdk2/proto/node_filter.proto";
+
+message NodeTransform {
+  GraphType graph_type = 1;
+  Op op = 2;
+}
+
+message FilterTransformPair {
+  NodeFilter filter = 1;
+  NodeTransform transform = 2;
+}
+
+message NodeTypes {
+  // Groups of different node types
+  repeated string opu_nodes = 1;
+  repeated string quantized_electronic_nodes = 2;
+}
+
+message DebugInfo {
+  string debug_dir = 2;
+  bool collect_checksums = 4;
+}
+
+message SweepInfo {
+  // Python code breaks data into chunks of size py_batch_size. The GraphRunner
+  // will evenly divide all the batches among the processes. Each process (or a
+  // single process) will iteratively call the cpp code with batches of size
+  // py_batch_size. The cpp code will break down an inference input of size
+  // py_batch_size into chunks of size compilation_batch_size. See
+  // Platform/docs/process_flow.pdf for a drawing of this proces.
+  // These will be ignored when set to 0.
+  int32 py_batch_size = 2;
+  int32 num_py_batches = 8;
+
+  // If true, this will convert the graph to debug mode before running test
+  // data through the graph
+  bool convert_graph_to_debug_mode = 3;
+
+  // If true, the sweep will save protobufs and html files. If false, it will
+  // only save protobufs.
+  bool save_hist_html_files = 4;
+
+  // If true, collect bit activity in the simulation metrics
+  bool collect_bit_activity = 6;
+
+  // If true, collect memory layout in the simulation metrics
+  bool collect_memory_layout = 9;
+
+  // Fine tuning epochs
+  float num_fine_tuning_epochs = 7;
+}
+
+enum Stage {
+  INVALID = 0;
+  BASE_TRANSFORMS = 1;
+  ACTIVATION_SCALE_CALIBRATION = 2;
+  ADC_SCALE_CALIBRATION = 3;
+  FOLD_PHASIFY_CONSTANTS = 4;
+}
+
+message BinaryInstructionParams {
+  int32 dep_pc_distance_precision = 1;
+  int32 num_opu_tiles_precision = 2;
+  int32 num_batch_tiles_precision = 3;
+}
+
+message CompilerRestrictions {
+  bool no_odd_image_dims_conv2d = 1;
+}
+
+message CompilerParams {
+  bool allow_tmem_fall_back = 1;
+  bool tile_inputs_for_accumulators = 2;
+  BinaryInstructionParams binary_instruction_params = 3;
+  CompilerRestrictions compiler_restrictions = 4;
+}
+
+message SoftwareConfig {
+  repeated Stage standard_transform_stages = 21;
+
+  // Node transforms
+  repeated FilterTransformPair filter_transform_map = 1;
+
+  // Params for node transforms
+  bool use_weight_sharing = 2;
+  DType float_type = 4;
+  int32 quantized_electronic_op_precision = 5;
+  NodeTypes node_types = 7;
+
+  // Multi-threading
+  int32 num_threads_scales = 8;
+
+  // Debugging and caching
+  DebugInfo debug_info = 10;
+  string cache_dir = 12;  // dir used to cache results of processing stages.
+
+  // Quantization types
+  QuantizationBiasType activation_scale_quantization_bias_type = 24;
+  QuantizationType weight_quantization_type = 6;
+  float weight_quantization_cutoff = 26;
+  QuantizationType adc_scale_quantization_type = 14;
+  bool use_unsigned_quant_scheme = 28;
+
+  // Quantization methods for computing scales
+  QuantizationMethod activation_scale_quantization_method = 17;
+  QuantizationMethod adc_scale_quantization_method = 18;
+  bool ignore_empty_histograms = 25;
+
+  // Number of bins for computing scales
+  int32 activation_scale_num_bins = 22;
+  int32 adc_scale_num_bins = 23;
+
+  // Extra info for performance sweep
+  SweepInfo sweep_info = 16;
+
+  int32 max_proto_size = 19;  // in bytes
+
+  // When processing, initializing, and transforming nodes, nodes that
+  // match this filter will be ignored. They will always be unsupported
+  // and may have undefined shapes in the LNF format.
+  NodeFilter ignore_nodes_filter = 27;
+
+  repeated yis_sdk.InstructionFormat instruction_formats = 33;
+  map<string, int32> op_code_map = 32;
+  map<int32, string> rev_op_code_map = 31;
+  map<string, int32> alu_op_code_map = 35;
+  // Hardware independent compiler params
+  CompilerParams compiler_params = 30;
+
+  bool disable_block_sparsity = 34;
+}

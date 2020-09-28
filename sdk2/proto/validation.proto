@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package light;
+
+// Digital verification
+message OmemRow {
+  bytes data = 1;  // holds opu_dim bytes.
+}
+
+message OmemRegion {
+  int32 start_addr = 1;
+  repeated OmemRow row = 2;
+}
+
+message OmemSnapshot {
+  repeated OmemRegion regions = 1;
+}
+
+message SimulationOmemDiff {
+  OmemSnapshot before = 1;  // if not set, assume all 0's
+  OmemSnapshot after = 2;
+}
+
+message OpuModelValidation {
+  string name = 1;
+  repeated float inputs = 2;
+  repeated float outputs = 3;
+  repeated float weights = 4;
+}
+
+// Verification against verilog models
+message VerilogLinkData {
+  int32 num_dims = 1;
+  repeated int32 cimzi_codes = 2;
+  repeated int32 scim_codes = 3;
+  float output = 4;
+  float dark_out = 5;
+}
+
+message VerilogLinkCompilation {
+  repeated VerilogLinkData link_data = 1;
+}

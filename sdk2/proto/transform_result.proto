@@ -1,0 +1,84 @@
+syntax = "proto3";
+package light;
+
+import "sdk2/proto/lgf.proto";
+
+message ToAdd {
+  /*
+    A new node to add to the graph
+  */
+  LNF node = 1;
+}
+
+message ToReplace {
+  /*
+    A new node to replace in the graph. This node must have the
+    same name as a node in the original graph.
+  */
+  LNF node = 1;
+}
+
+message ToReroute {
+  /*
+    Either an EdgeReroute or a ControlInputReroute, see below for descriptions
+    of these rerouting procedures.
+   */
+  oneof type {
+    EdgeReroute edge_reroute = 1;
+    ControlInputReroute control_input_reroute = 2;
+  }
+
+  /*
+    Contains a list of node names. If this is empty, we will use all the nodes
+    in the graph.
+  */
+  repeated string dst_node_names = 3;
+
+  message EdgeReroute {
+    /*
+      For each node in dst_nodes,
+          If old_edge --> node, change the graph so that new_edge --> node
+          EXCEPT: if new_edge.name == node.name, keep old_edge --> node
+              to avoid a cycle
+
+      If old_edge is an output of the graph, replace it with new_edge
+      Here, a --> b means edge a is in b.inputs
+    */
+    EdgeInfo old_edge = 1;
+    EdgeInfo new_edge = 2;
+  }
+
+  message ControlInputReroute {
+    /*
+      For each node in dst_nodes,
+          If [old_nodes] --> node, change the graph so [new_nodes] --> node
+
+      Here, [a] --> b means a is a list of nodes and every name in [n.name for n
+      in a] is in b.control_inputs
+     */
+    repeated string old_node_names = 1;
+    repeated string new_node_names = 2;
+  }
+}
+
+message ToOutputSwap {
+  /*
+    Swaps old_output_node_names in the light graph output node names
+    for new_output_node_names
+   */
+  repeated string old_output_node_names = 1;
+  repeated string new_output_node_names = 2;
+}
+
+message TransformResult {
+  /*
+    Container for node modifications resulting from a transform.
+    Nodes are keyed by node.name. Transformations occur in the following
+    order: add nodes, replace nodes, reroute nodes. Nodes are added, replaced,
+    and rerouted in the order they appear in their respective lists.
+  */
+  repeated ToAdd to_add = 1;
+  repeated ToReplace to_replace = 2;
+  repeated ToReroute to_reroute = 3;
+  repeated ToOutputSwap to_output_swap = 4;
+}

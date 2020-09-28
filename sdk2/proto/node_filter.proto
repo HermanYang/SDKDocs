@@ -1,0 +1,68 @@
+syntax = "proto3";
+package light;
+
+import "sdk2/proto/ops.proto";
+
+message TrueFilter {}
+
+message AndFilter {
+  repeated NodeFilter filters = 1;
+}
+
+message OrFilter {
+  repeated NodeFilter filters = 1;
+}
+
+message NotFilter {
+  NodeFilter filter = 1;
+}
+
+message NameIsFilter {
+  string name = 1;
+}
+
+message NameInFilter {
+  string name = 1;
+}
+
+message NameStartsWithFilter {
+  string prefix = 1;
+}
+
+message LastNodeFilter {}
+
+message FirstNodeFilter {}
+
+message OpFilter {
+  repeated Op ops = 1;
+}
+
+message SupportedNodeFilter {}
+
+message WhichOneofFilter {
+  repeated string oneofs = 1;
+}
+
+message NodeFilter {
+  oneof node_filter {
+    // Logic
+    TrueFilter true_filter = 12;
+    AndFilter and_filter = 1;
+    OrFilter or_filter = 2;
+    NotFilter not_filter = 3;
+
+    // Name
+    NameIsFilter name_is_filter = 4;
+    NameInFilter name_in_filter = 5;
+    NameStartsWithFilter name_starts_with_filter = 6;
+
+    // Position
+    FirstNodeFilter first_node_filter = 7;
+    LastNodeFilter last_node_filter = 8;
+
+    // Ops
+    OpFilter op_filter = 9;
+    SupportedNodeFilter supported_node_filter = 10;
+    WhichOneofFilter which_oneof_filter = 11;
+  }
+}

@@ -1,0 +1,85 @@
+syntax = "proto3";
+package light;
+
+import "sdk2/proto/subgraph_binary.proto";
+
+message CoherentSpecs {
+  // TODO(later): support coherent again.
+  int32 capacity = 1;
+}
+
+message IncoherentSpecs {
+  int32 output_columns = 1;
+  // Configuration of opu arrays. This only applies to
+  // the incoherent scheme. Each opu has a size of
+  // [dimension / opu_rows, output_columns/ opu_cols]
+  int32 opu_rows = 2;
+  int32 opu_cols = 3;
+
+  int32 pseudo_energy_precision = 4;
+}
+
+message DigitalSpecs {
+  int32 output_columns = 1;
+  int32 multiplication_precision = 2;
+
+  // Length of this should be log_2(dimension), requires dimension to be a power
+  // of 2
+  repeated int32 sum_tree_precision = 3;
+}
+
+// Hardware specs captures the fixed attributes of a potential
+// system.  These are used throughout the software stack.
+// The subgraph loader and executor should only need these
+// values to produce LISA.
+message HardwareSpecs {
+  oneof architecture {
+    CoherentSpecs coherent = 1;
+    IncoherentSpecs ideal_incoherent = 2;
+    IncoherentSpecs physical_incoherent = 28;
+    DigitalSpecs ideal_digital = 27;
+    DigitalSpecs physical_digital = 29;
+  }
+
+  // shape of entire array
+  int32 dimension = 3;
+  int32 num_opus = 33;
+
+  // Input specs
+  int32 input_precision = 5;
+  bool signed_inputs = 6;
+
+  // Phase specs
+  // NOTE: max_abs_weight specifies the part of the sin/cos curve the phases
+  // correspond to
+  int32 phase_precision = 7;
+  bool signed_phases = 8;
+  float max_abs_weight = 9;
+
+  int32 output_precision = 10;
+
+  // Memory.
+  int64 tmem_rows = 12;
+  int32 umem_num_banks = 20;
+  int64 umem_rows_per_bank = 13;
+  int32 const_mem_rows = 22;
+  int32 adc_scale_mem_rows = 23;
+  int32 accumulators_mem_rows = 24;
+
+  // Number of bits per value.  dimension stores the number
+  // of values per vector.
+  int32 value_storage_bits = 19;
+
+  bool time_multiplex_inputs = 17;
+  bool time_multiplex_weights = 18;
+
+  int32 num_wavelengths = 26;
+
+  // Memory storage
+  MemoryAllocation.MemoryType weight_memory = 30;
+  MemoryAllocation.MemoryType constant_memory = 31;
+
+  // Add an option for unquantized weights. This is useful for passive optical
+  // attenuators (e.g., those used in Tahoma).
+  bool use_unquantized_weights = 32;
+}

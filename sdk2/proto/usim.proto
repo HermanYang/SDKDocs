@@ -1,0 +1,88 @@
+syntax = "proto3";
+package light;
+
+import "sdk2/proto/subgraph_binary.proto";
+import "sdk2/proto/dtypes.proto";
+
+// Message sent on the MBTA
+message MBTATrain {
+  enum TrainLine {
+    BROKEN_TRAIN = 0;
+    DATA = 1;
+    CONTROL = 2;
+  }
+  enum PayloadType {
+    INVALID_PAYLOAD = 0;
+    INSTRUCTION = 1;
+    INITIAL_FETCH = 2;
+    INSTRUCTION_FETCH = 3;
+    LOAD_HOSTMEM = 4;
+    STORE_HOSTMEM = 5;
+    DATA_TRANSFER = 6;
+    INSTRUCTION_FINISHED = 7;
+    DONE = 8;  // No more instructions in imem
+    CORE_TX = 9;
+    CORE_RX = 10;
+    STAGING = 11;
+    DEQUANT_SCALES = 12;
+    INPUT_DATA = 15;
+    OUTPUT_DATA = 16;
+    LOAD_CONSTANTS = 17;
+  }
+  int32 num_values = 3;
+
+  TrainLine line = 4;
+  PayloadType payload_type = 5;
+
+  oneof train_car {
+    FreightCar freight_car = 6;
+    Caboose caboose = 7;
+  }
+}
+
+message FreightCar {
+  bytes payload = 1;  // serialized proto
+  int32 payload_size = 2;
+  int32 id = 3;
+}
+
+// Signal Instruction finished
+message Caboose {
+  // Used with INSTRUCTION_FINISHED
+  // id can be pc, addr, etc
+  int32 id = 1;
+  // num can be num_finished, size, etc
+  int32 num = 2;
+}
+
+message EncodedMemoryAllocation {
+  int64 address = 1;
+  int64 count = 2;
+  MemoryAllocation.MemoryType mem_type = 3;
+  MemoryAllocation.PackType pack_type = 4;
+}
+
+message LTTensorProto {
+  DType dtype = 1;
+  int32 num_rows = 2;
+  bytes data = 3;
+  int32 vector_size = 4;
+  MemoryAllocation.PackType pack_type = 5;
+}
+
+message DataTransfer {
+  int32 pc = 3;
+
+  LTTensorProto lt_ten_proto = 4;
+  int32 core_inst = 5;
+
+  // Encoded fields
+  EncodedMemoryAllocation enc_src_addr = 6;
+  EncodedMemoryAllocation enc_dest_addr = 7;
+}
+
+message FetchInstruction {
+  int32 imem_addr = 1;
+  int32 window_size = 2;
+  int32 end_imem_addr = 3;
+}

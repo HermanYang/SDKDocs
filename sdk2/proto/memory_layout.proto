@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package light;
+
+import "sdk2/proto/subgraph_binary.proto";
+
+message MemorySnapshot {
+  // A list of all the memory allocations at a given time
+  // for a certain MemoryType
+  repeated MemoryAllocation allocs = 1;
+}
+
+message MemoryLayout {
+  // Includes snapshots of a certain type of memory over time
+  // every MemoryAllocation should have the same MemoryType
+  int32 num_banks = 1;
+  int32 rows_per_bank = 2;
+  repeated MemorySnapshot snapshots = 3;
+}
+
+message FullMemoryLayout {
+  // Maps MemoryType --> MemoryLayout
+  map<int32, MemoryLayout> memory_layout_map = 1;
+}
