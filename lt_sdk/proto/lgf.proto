@@ -1,0 +1,460 @@
+syntax = "proto3";
+package light;
+
+import "lt_sdk/proto/dtypes.proto";
+import "lt_sdk/proto/ops.proto";
+import "lt_sdk/proto/common.proto";
+import "lt_sdk/proto/graph_types.proto";
+
+// ---------- Specific Node Format ----------
+
+message OriginalNode {
+  // Rough conversion from an external library node representation to our
+  // custom node format, should be able to re-create the original node with
+  // the graph type and serialized node
+  GraphType t = 1;
+  bytes serialized_node = 2;
+  Op op = 3;
+  map<string, Param> attr = 5;
+}
+
+message SubgraphNode {
+  // An unsupported node that contains another LGF inside of it
+  LGF graph = 1;
+}
+
+enum DequantMethod {
+  DQ_INVALID = 0;
+  DQ_NONE = 1;
+  DQ_STANDARD = 2;
+  // DQ_THRESHOLD binarizes OPU outputs by comparing ADC values with digital
+  // outputs.
+  DQ_THRESHOLD = 3;
+  // DQ_ANALOG_THRESHOLD compares OPU analog outputs to analog thresholds.
+  // No ADCs are involved.
+  DQ_ANALOG_THRESHOLD = 4;  // e.g. for Ising problem.
+}
+
+message MatMulNode {
+  // Index to input edge info
+  enum index {
+    INPUT_INDEX = 0;
+    QUANT_PARAMS_INDEX = 1;
+    PHASES_INDEX = 2;
+    DEQUANT_SCALES_INDEX = 3;
+    ADC_SCALES_INDEX = 4;
+    DEQUANT_BIAS_INDEX =
+        5;  // only used when using_quant_bias and phasify_is_folded
+  }
+
+  // These are only used for simulations, do not need to
+  // implement in hardware
+  bool turn_off_adc = 5;
+  HistKeys hist_keys_before_adc = 6;
+  HistKeys hist_keys_after_adc = 7;
+
+  // Matmul node does quantize -> matmul -> dequantize
+  int32 quant_precision = 11;
+  bool using_quant_bias = 9;
+  bool phasify_is_folded = 10;
+  DequantMethod dequant_method = 8;
+  bool from_batch_matmul = 12;
+}
+
+// Run a single vector through the OPU in a loop.
+message LoopMatMulNode {
+  int32 loop = 1;
+  MatMulNode matmul = 2;
+  bool keep_trace = 3;
+  float threshold = 4;
+}
+
+message ImagePatchAttributes {
+  // 4D, corresponds to data format
+  repeated int32 kernel_size = 1;
+  repeated int32 strides = 2;
+
+  enum Padding {
+    PADDING_INVALID = 0;
+    SAME = 1;
+    VALID = 2;
+    SAME_EVEN = 3;  // SAME but force even padding on both sides
+  }
+  Padding padding = 3;
+
+  enum DataFormat {
+    DATA_FORMAT_INVALID = 0;
+    NHWC = 1;
+    NCHW = 2;
+  }
+  DataFormat data_format = 4;
+}
+
+message Conv2DNode {
+  // Fields shared with MatMulNode are here
+  MatMulNode matmul = 1;
+
+  // Conv2D specific attributes
+  ImagePatchAttributes image_attr = 2;
+}
+
+message BlockDiagonalDepthwiseConv2DNode {
+  // Fields shared with Conv2DNode are here
+  Conv2DNode conv2d = 1;
+}
+
+message DistributedDepthwiseConv2DNode {
+  // Fields shared with Conv2DNode are here
+  Conv2DNode conv2d = 1;
+}
+
+message PoolNode {
+  ImagePatchAttributes image_attr = 1;
+  enum PoolingType {
+    POOLING_TYPE_INVALID = 0;
+    MAX_POOL = 1;
+    AVG_POOL = 2;
+  }
+  PoolingType pooling_type = 2;
+
+  // set to 0 for unquantized pool
+  float quant_scale = 3;
+  float quant_precision = 4;
+}
+
+message FusedBatchNormNode {
+  enum index {
+    INPUT_INDEX = 0;
+    MEAN_INDEX = 1;
+    VARIANCE_INDEX = 2;
+    SCALE_INDEX = 3;
+    BIAS_INDEX = 4;
+  }
+  float epsilon = 5;
+}
+
+message PadNode {
+  repeated int32 padding = 1;  // (before, after) pairs for each dimension.
+}
+
+message MeanNode {
+  repeated int32 axes = 1;  // which dims get reduced
+  bool keep_dims = 2;
+}
+
+message SVAddNode {
+  float scalar = 1;
+}
+
+message SVMulNode {
+  float scalar = 1;
+}
+
+message SVMaxNode {
+  float scalar = 1;
+}
+
+message SVMinNode {
+  float scalar = 1;
+}
+
+message SVPowNode {
+  float scalar = 1;
+}
+
+message VVAddNode {}
+
+message VVMulNode {}
+
+message VVDivNode {}
+
+message VVMaxNode {}
+
+message VVMinNode {}
+
+message VVSubNode {}
+
+message IdentityNode {}
+
+message ReshapeNode {}
+
+message CastNode {}
+
+message BlockDiagonalDepthwiseConv2DReshapeNode {}
+
+message TransposeNode {
+  // Dims to transpose, should be length of the rank of the input tensor
+  repeated int32 axes = 1;
+}
+
+message UnstackNode {
+  int32 axis = 1;  // The axis to unstack along
+}
+
+message StackNode {
+  int32 axis = 1;  // The axis to stack along
+}
+
+message ConcatNode {
+  int32 axis = 1;  // The axis to concatenate along
+}
+
+message SplitNode {
+  int32 axis = 1;  // The axis to split along
+}
+
+message ReduceSumNode {
+  repeated int32 axes = 1;  // which dims get reduced
+  bool keep_dims = 2;
+}
+
+message ExpNode {}
+
+message CollectHistNode {
+  HistKeys hist_keys = 1;
+}
+
+message QuantizeNode {
+  float scale = 1;
+  int32 precision = 2;
+  float bias = 3;
+}
+
+message DequantizeNode {
+  enum index {
+    INPUT_INDEX = 0;
+    DEQUANT_SCALES_INDEX = 1;
+  }
+  DequantMethod method = 1;
+  float bias = 2;
+}
+
+message RequantizeNode {
+  // Fields shared with dequantize are here
+  DequantizeNode dequantize = 1;
+
+  // Fields shared with quantize are here
+  QuantizeNode quantize = 2;
+}
+
+message PhasifyNode {
+  // Index to input edge info
+  enum input_index {
+    QUANT_PARAMS_INPUT_INDEX = 0;
+    WEIGHTS_INPUT_INDEX = 1;
+    ADC_SCALES_INPUT_INDEX = 2;
+  }
+
+  // Index to output edge info
+  enum output_index {
+    PHASES_OUTPUT_INDEX = 0;
+    DEQUANT_SCALES_OUTPUT_INDEX = 1;
+    ADC_SCALES_OUTPUT_INDEX = 2;
+  }
+
+  bool transpose = 1;
+}
+
+enum SparsityType {
+  SPARSE_INVALID = 0;
+  SPARSE_NONE = 1;
+  SPARSE_TOP = 2;
+  SPARSE_BOTTOM = 3;
+}
+
+message ConstNode {
+  enum ConstType {
+    GRAPH_CONST = 0;
+    ADC_SCALE = 1;
+    DEQUANT_SCALE = 2;
+    WEIGHTS = 3;
+    DEQUANT_BIAS = 4;
+  }
+
+  Tensor value = 1;
+  ConstType const_type = 3;
+
+  // optional, for compiler optimizations
+  int32 weight_rows = 4;
+  int32 non_sparse_weight_rows = 5;
+  int32 sparse_rows_per_tile = 6;
+  repeated SparsityType sparsity_type = 7;
+}
+
+message VariableNode {}
+
+message LoadWeightsNode {
+  int32 sparse_rows_per_tile = 1;
+  repeated SparsityType sparsity_type = 2;
+  DType scale_type = 3;
+  bool scales_appended_to_weights = 4;
+  bool using_quant_bias = 5;
+}
+
+message ApplyWeightsNode {
+  Tensor quant_params = 1;
+}
+
+message MoveNode {}
+
+message HaltNode {
+  int32 exit_code = 1;
+  string inp_ten = 2;
+  string out_ten = 3;
+}
+
+message NoOpNode {}
+
+message BundleNode {
+  LGF subgraph = 1;
+}
+
+message UpdateVariablesNode {
+  // Update types
+  message UpdateQuantParams {
+    int32 key = 1;
+  }
+
+  message UpdateADCScales {
+    repeated int32 keys = 1;
+  }
+
+  message UpdateInfo {
+    // Message that contains all the update types
+    message UpdateType {
+      oneof type {
+        UpdateQuantParams update_quant_params = 1;
+        UpdateADCScales update_adc_scales = 2;
+      }
+    }
+
+    // Maps variable names to update type
+    map<string, UpdateType> variable_map = 1;
+  }
+
+  UpdateInfo update_info = 1;
+}
+
+message FillNode {
+  float value = 1;
+}
+
+message TileNode {}
+
+// ---------- Generic Graph and Node Structure ----------
+
+// Quantization Parameters
+message QuantizationParameters {
+  int32 quantized_dimension = 1;
+  repeated float scale = 2;
+  repeated float bias = 3;
+}
+
+// Edges are connections between nodes
+message EdgeInfo {
+  string name = 1;  // node name
+  int32 port = 2;   // output port
+  DType dtype = 3;
+  TensorShape shape = 4;
+  QuantizationParameters quant_params = 5;
+}
+
+// Lightelligence Node Format
+message LNF {
+  string name = 1;
+  repeated EdgeInfo inputs = 2;
+  repeated string control_inputs = 37;
+  repeated EdgeInfo outputs = 3;
+  bool supported = 4;
+
+  oneof node {
+    // Unsupported Nodes
+    OriginalNode original = 5;
+    SubgraphNode subgraph = 6;
+
+    // OPU Ops
+    MatMulNode matmul = 7;
+    Conv2DNode conv2d = 8;
+    LoopMatMulNode loop_matmul = 38;
+    BlockDiagonalDepthwiseConv2DNode block_diagonal_depthwise_conv2d = 43;
+    DistributedDepthwiseConv2DNode distributed_depthwise_conv2d = 45;
+
+    // Electronic Ops
+    PoolNode pool = 9;
+    FusedBatchNormNode batchnorm = 10;
+    PadNode pad = 11;
+    MeanNode mean = 12;
+    SVAddNode sv_add = 14;
+    SVMulNode sv_mul = 15;
+    SVMaxNode sv_max = 16;
+    SVMinNode sv_min = 34;
+    SVPowNode sv_pow = 53;
+    VVAddNode vv_add = 17;
+    VVMulNode vv_mul = 18;
+    VVDivNode vv_div = 50;
+    VVMaxNode vv_max = 19;
+    VVMinNode vv_min = 35;
+    VVSubNode vv_sub = 52;
+    IdentityNode identity = 20;
+    ReshapeNode reshape = 21;
+    CastNode cast = 22;
+    BlockDiagonalDepthwiseConv2DReshapeNode
+        block_diagonal_depthwise_conv2d_reshape = 42;
+    TransposeNode transpose = 46;
+    ReduceSumNode reduce_sum = 48;
+    ExpNode exp = 49;
+    UnstackNode unstack = 51;
+    FillNode fill = 54;
+    StackNode stack = 55;
+    TileNode tile = 56;
+    ConcatNode concat = 57;
+    SplitNode split = 58;
+
+    // Quantization Ops
+    CollectHistNode collect_hist = 23;
+    QuantizeNode quantize = 24;
+    DequantizeNode dequantize = 25;
+    RequantizeNode requantize = 26;
+    PhasifyNode phasify = 40;
+
+    // Nodes storing tensors
+    ConstNode const = 27;
+    VariableNode variable = 41;
+
+    // Weights-related instructions
+    LoadWeightsNode ldw = 47;
+    ApplyWeightsNode apw = 28;
+
+    // Data-Related instructions
+    MoveNode move = 29;
+
+    // Flow-control instructions
+    HaltNode halt = 31;
+    NoOpNode noop = 32;
+    BundleNode bundle = 33;
+
+    // Instructions that update variables
+    UpdateVariablesNode update_variables = 39;
+  }
+}
+
+message MetaGraphInfo {
+  // Currently only used to store graph level info
+  // from an original graph. For example, parts of a
+  // TensorFlow MetaGraphDef
+  map<string, Param> original_graph_info = 1;
+
+  // A list of nodes that are required, these nodes
+  // and their dependencies should never be pruned
+  // from the graph
+  repeated string required_nodes = 2;
+}
+
+// Lightelligence Graph Format
+message LGF {
+  repeated LNF nodes = 1;
+  repeated EdgeInfo input_edges = 3;
+  repeated EdgeInfo output_edges = 4;
+  repeated string output_node_names = 6;
+  MetaGraphInfo meta_graph_info = 5;
+}
