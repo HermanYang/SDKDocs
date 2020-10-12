@@ -1,0 +1,48 @@
+syntax = "proto3";
+package light;
+
+import "lt_sdk/proto/lgf.proto";
+import "lt_sdk/proto/hw_spec.proto";
+import "lt_sdk/proto/sw_config.proto";
+import "lt_sdk/proto/sim_params.proto";
+import "lt_sdk/proto/inference.proto";
+import "lt_sdk/proto/memory_layout.proto";
+
+message ConfigInfo {
+  string description = 1;
+  HardwareSpecs hw_specs = 2;
+  SoftwareConfig sw_config = 3;
+  SimulationParams sim_params = 4;
+  bool do_transform = 5;
+  bool do_fine_tuning = 6;
+}
+
+message QualityMetrics {
+  map<string, float> metrics = 1;
+}
+
+message SimulationMetrics {
+  message BitActivity {
+    repeated int32 bit_flip_counts = 1;
+    repeated int32 total_bits = 2;
+  }
+
+  map<string, BitActivity> bit_activity = 1;
+  FullMemoryLayout memory_layout = 2;
+}
+
+message PerformanceData {
+  ConfigInfo config = 1;
+  LGF graph = 2;
+  QualityMetrics quality_metrics = 3;
+  ExecutionStats execution_stats = 4;
+  SimulationMetrics simulation_metrics = 5;
+}
+
+message PerformanceSweepData {
+  repeated PerformanceData data = 1;
+}
+
+message RelativeErrorData {
+  map<string, float> errors_dict = 1;
+}
