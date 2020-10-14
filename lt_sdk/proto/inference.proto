@@ -1,0 +1,72 @@
+syntax = "proto3";
+package light;
+
+import "lt_sdk/proto/common.proto";
+import "lt_sdk/proto/lgf.proto";
+import "lt_sdk/proto/subgraph_binary.proto";
+
+message NamedTensor {
+  EdgeInfo edge_info = 1;
+  Tensor data = 2;
+}
+
+message InferenceInput {
+  // one for each input. Should correspond to the tensor
+  // names in the loaded LGF.
+  repeated NamedTensor inputs = 1;
+}
+
+message InstructionStats {
+  int64 duration_clks = 1;
+  int64 start_clk = 2;
+  int64 pc = 3;
+  repeated string unit_name = 7;
+  OPUInstruction instruction = 8;
+  repeated int32 interconnects = 9;  // e.g. ring numbers
+  repeated int32 dram_channels = 11;
+  repeated int32 io_ports = 12;
+  repeated int32 opus = 13;
+  int32 wavelengths_used = 14;
+
+  // Tensor checksums for each edge produced.
+  // We have to use a "name-port" string as
+  // a key to identify edges.
+  map<string, float> checksums = 10;
+}
+
+message ExecutionStats {
+  int64 total_clocks = 1;
+  repeated InstructionStats instructions = 2;
+  int32 num_samples = 3;
+}
+
+// This is a separate message because we'll want to store
+// more info other than the result about what happened.
+message InferenceOutput {
+  // one for each output. Should correspond to the tensor
+  // names in the loaded LGF.
+  repeated NamedTensor results = 1;
+
+  ExecutionStats stats = 2;
+}
+
+// Messages for splitting data into batches
+message BatchedInferenceInput {
+  repeated InferenceInput batches = 1;
+}
+
+message BatchedInferenceOutput {
+  repeated InferenceOutput batches = 1;
+}
+
+message GetInputSpecRequest {}
+
+message GetInputSpecResponse {
+  repeated EdgeInfo inputs = 1;
+}
+
+service LTInference {
+  rpc GetInputSpec(GetInputSpecRequest) returns (GetInputSpecResponse) {}
+  rpc Predict(BatchedInferenceInput) returns (BatchedInferenceOutput) {}
+  rpc PredictBatch(InferenceInput) returns (InferenceOutput) {}
+}

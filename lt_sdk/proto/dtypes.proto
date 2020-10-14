@@ -1,0 +1,20 @@
+syntax = "proto3";
+package light;
+
+enum Type {
+  DT_INVALID = 0;
+  DT_FLOAT = 1;
+  DT_BFLOAT = 2;
+  DT_INT = 3;
+  DT_UINT = 4;
+  DT_QINT = 5;
+  DT_QUINT = 6;
+  DT_COMPLEX = 7;
+  DT_BOOL = 8;
+  DT_STRING = 9;
+}
+
+message DType {
+  Type t = 1;
+  int32 p = 2;  // precision
+}
