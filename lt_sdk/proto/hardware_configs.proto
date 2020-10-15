@@ -1,0 +1,8 @@
+syntax = "proto3";
+package light;
+
+enum HardwareConfig {
+  DELTA = 0;
+  BRAVO = 1;
+  VANGUARD = 2;
+}

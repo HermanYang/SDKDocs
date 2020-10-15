@@ -1,0 +1,184 @@
+syntax = "proto3";
+
+package light;
+
+import "lt_sdk/proto/common.proto";
+import "lt_sdk/proto/lgf.proto";
+
+message MemoryAllocation {
+  enum MemoryType {
+    // The values of this enum should match MEM_TYPE_E in lisa.yis
+    INVALID = 0;
+    TMEM = 1;
+    BYPASS = 2;
+    IMEM = 3;
+    HOSTMEM = 6;
+    UMEM = 5;
+    CONSTMEM = 4;
+    ACCUMULATORS = 7;
+    ADCSCALEMEM = 8;
+  }
+  enum PackType {
+    // Pack powers of two, PACK_N means we pack N sets of the last dimension of
+    // a tensor on the opu dim. For example, if we have a [16, 3] tensor
+    // with PACK_16, it will pack 16 [1, 3] tensors into a single physical row.
+    PACK_INVALID = 0;
+    PACK_NONE = 1;
+    PACK_2 = 2;
+    PACK_4 = 4;
+    PACK_8 = 8;
+    PACK_16 = 16;
+    PACK_32 = 32;
+  }
+
+  // Start address for the memory allocation
+  int64 address = 2;
+
+  // Number of physical rows in memory
+  int64 physical_rows = 3;
+
+  int32 num_tiles = 15;
+
+  // Type of packing on the opu dimension.
+  PackType pack_type = 5;
+
+  // Some instructions could target either umem or tmem.
+  MemoryType mem_type = 6;
+
+  EdgeInfo info = 10;
+
+  // Used in destination addresses to indicate how many nodes read them.
+  // Useful when ref counting memory allocations, we can clean them up
+  // when they're all used.
+  // Also useful in enforcing that memory isn't written over/reused until
+  // it's completely used.
+  int32 ref_count = 11;
+
+  // This is a work-around for moving dequant scales into a weight allocation
+  // in UMEM from HOSTMEM.
+  bool disable_mark = 13;
+
+  // Special case only used for compiling dequant scales.
+  OPUTile scale_tile = 14;
+  enum ClearType {
+    CLEAR_INVALID = 0;
+
+    // Clear after using this memory address ref_count times. When
+    // clearing memory, this address is cleared.
+    STANDARD_CLEAR = 1;
+
+    // Only clear after using ref counts times. When clearing memory,
+    // this address is ignored.
+    ONLY_CLEAR_WHEN_USED = 2;
+
+    // Never clear, used for constants, ref_count is ignored.
+    NEVER_CLEAR = 3;
+  }
+
+  // Specifies what to do when asked to clear this type of memory
+  ClearType clear_type = 12;
+}
+
+message OPUTile {
+  int32 tile_x = 1;
+  int32 tile_y = 2;
+  int32 num_tiles_x = 3;
+  int32 num_tiles_y = 6;
+  int32 tile_batch = 7;
+  int32 num_dps = 8;
+
+  // Currently only used for dequant scale compilation
+  int32 dp_num = 9;
+
+  enum Mode {
+    SQUASH = 0;
+    ACCUMULATE = 1;
+    WRITE_BACK = 2;
+    SINGLE_ROW = 3;
+  }
+  Mode mode = 4;
+  MemoryAllocation acc_addr = 5;
+}
+
+message GenericTile {
+  int32 tile = 1;
+  int32 num_tiles = 2;
+  int32 num_dps = 3;
+}
+
+message SubInstr {
+  repeated OPUInstruction instr = 1;
+}
+
+message OutputTiles {
+  message OutputDependency {
+    repeated int32 dependent_pc = 1;
+  }
+
+  // This is not needed for execution, it's just helpful
+  // for compilation to independently track output tiles
+  // so that subsequent instructions only depend on the
+  // tiles necessary.
+  repeated OutputDependency tiles = 2;
+}
+
+message OPUInstruction {
+  LNF node = 1;
+  int32 pc = 2;  // "Program Counter", just a unique id.
+
+  // Distance to other pcs that must complete before this instruction can
+  // be issued.
+  repeated int32 dependent_pcs_distance = 3;
+
+  // Indicates where this instruction came from. This is only needed for
+  // simulation and debug purposes, it isn't necessary for hardware.
+  string tensor_name = 4;
+
+  // If greater than zero, the next instruction that consumes
+  // this one can start after this many vectors have finished.
+  int32 pipeline_count = 5;
+
+  // Identifies a LDW-APW-MATMUL combination so we can keep them together
+  // even if they're targeting different virtual OPUs.
+  int32 opu_chain_id = 12;
+
+  // These could be omem or tmem or wmem
+  // TODO: Use a pared down data structure that only
+  // contains the fields necessary for execution (after allocation).
+  repeated MemoryAllocation src_addr = 6;
+  repeated MemoryAllocation dest_addr = 7;
+
+  oneof tile {
+    OPUTile opu_tile = 8;
+    GenericTile generic_tile = 9;
+  }
+
+  oneof extra {
+    // Optional extra instruction specific information
+    SubInstr sub_instr = 10;
+    OutputTiles output_tiles = 11;
+
+    // A fix for bottom tiles loaded from TMEM, actually contain padded 0's,
+    // which makes it hard to determine where dequant scales are.
+    int32 real_weight_rows = 13;
+  }
+}
+
+message OPUBinary {
+  repeated OPUInstruction instr = 1;
+}
+
+message GraphConstant {
+  MemoryAllocation alloc = 1;
+  Tensor data = 2;
+  LNF original_node = 3;
+}
+
+message CompiledSubgraph {
+  // Contains everything necessary to run a subgraph,
+  // but only the binary will be encoded and sent to the device
+  OPUBinary binary = 1;
+  repeated GraphConstant constants = 2;
+  repeated MemoryAllocation inputs = 3;
+  repeated MemoryAllocation outputs = 4;
+}

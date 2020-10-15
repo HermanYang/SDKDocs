@@ -1,0 +1,57 @@
+syntax = "proto3";
+package light;
+
+enum Op {
+  // Ops should only be used to label original LNF nodes
+  UNKNOWN = 0;
+
+  // Common ops
+  RESHAPE = 1;
+  CONST = 2;
+  CAST = 3;
+  MATMUL = 4;
+  CONV2D = 5;
+  DEPTHWISE_CONV2D = 21;
+  MAXPOOL = 6;
+  AVGPOOL = 26;
+  BATCHNORM = 7;
+  PAD = 8;
+  MEAN = 9;
+  SOFTMAX = 10;
+  SQUEEZE = 27;
+  ADD = 11;
+  RELU = 12;
+  RELU6 = 20;
+  FULLY_CONNECTED = 13;
+  VARIABLE = 22;
+  ASSIGN = 25;
+  SWISH = 28;
+  MULTIPLY = 29;
+  SIGMOID = 30;
+  TRANSPOSE = 31;
+  TANH = 32;
+  UNSTACK = 33;
+  SUB = 34;
+  POW = 35;
+  EXPANDDIMS = 36;
+  FILL = 37;
+  RSQRT = 38;
+  SQUARED_DIFFERENCE = 39;
+  STACK = 40;
+  BATCHMATMUL = 41;
+  TILE = 42;
+  CONCAT = 43;
+  SPLIT = 44;
+
+  // Flow control
+  IDENTITY = 14;
+  ENTER = 15;
+  SWITCH = 16;
+  MERGE = 17;
+  NEXT_ITERATION = 18;
+  EXIT = 19;
+
+  // Quantization
+  QUANTIZE = 23;
+  DEQUANTIZE = 24;
+}
