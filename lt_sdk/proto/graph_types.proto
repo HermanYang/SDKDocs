@@ -1,0 +1,12 @@
+syntax = "proto3";
+package light;
+
+enum GraphType {
+  LGFProtobuf = 0;
+  TFSavedModel = 1;
+  TFLiteSavedModel = 2;
+  TFTrainingSavedModel = 3;
+  TFTrainingCheckpoint = 4;
+  TFGraphDef = 5;
+  ONNXModel = 6;
+}

@@ -1,0 +1,76 @@
+syntax = "proto3";
+package light;
+
+import "lt_sdk/proto/dtypes.proto";
+import "lt_sdk/proto/ops.proto";
+
+message TensorShape {
+  repeated int32 d = 1;      // use -1 for unknown dims
+  int32 batch_dim_indx = 2;  // use -1 for shapes with no batch dim
+  int32 batch_dilation_factor = 3;
+}
+
+message Tensor {
+  bytes tensor_content = 1;
+  TensorShape shape = 2;
+  DType dtype = 3;
+}
+
+message ListParam {
+  repeated string s = 1;
+  repeated int32 i = 2;
+  repeated float f = 3;
+  repeated bool b = 4;
+  repeated Tensor t = 5;
+  repeated Op o = 6;
+}
+
+enum QuantizationType {
+  QT_INVALID = 0;
+  QT_SINGLE = 1;
+  QT_PER_TILE = 2;
+  QT_PER_COL = 3;
+  QT_PER_COL_PER_TILE = 4;
+}
+
+enum QuantizationBiasType {
+  QB_INVALID = 0;
+  QB_NONE = 1;
+  QB_MEAN = 2;
+  QB_MEDIAN = 3;
+}
+
+enum QuantizationMethod {
+  QM_INVALID = 0;
+  QM_MAX_ABS_VAL = 1;
+  QM_MIN_KL_DIVERGENCE = 2;
+  QM_MIN_KL_DIVERGENCE_WITH_SKIP = 3;
+  QM_MIN_TOTAL_VARIATION_DISTANCE = 4;
+  QM_MIN_TOTAL_VARIATION_DISTANCE_WITH_SKIP = 5;
+  QM_MAX_HISTOGRAM_INTERSECTION = 6;
+  QM_MAX_HISTOGRAM_INTERSECTION_WITH_SKIP = 7;
+  QM_MIN_MEAN_SQUARED_ERROR = 8;
+  QM_MIN_MEAN_SQUARED_ERROR_WITH_SKIP = 9;
+  QM_MIN_MEAN_ABS_ERROR = 10;
+  QM_MIN_MEAN_ABS_ERROR_WITH_SKIP = 11;
+  QM_FAVOR_SMALL = 12;
+}
+
+message HistKeys {
+  // quant_type specifies the number of keys and how they are indexed
+  repeated int32 keys = 1;
+  QuantizationType quant_type = 2;
+}
+
+message Param {
+  oneof value {
+    string s = 1;
+    int32 i = 2;
+    float f = 3;
+    bool b = 4;
+    Tensor t = 5;
+    Op o = 6;
+    ListParam l = 7;
+    bytes v = 8;
+  }
+}

@@ -1,0 +1,22 @@
+astor
+dataclasses
+flask
+gast==0.2.2
+grpcio
+keras
+keras_applications
+keras_preprocessing
+networkx
+numpy < 1.19.0
+onnx==1.6
+onnxruntime
+pillow
+plotly
+protobuf
+six
+scipy
+tensorboard==1.15.0
+tensorflow==1.15.3
+tensorflow-estimator == 1.15.1
+termcolor
+wrapt
