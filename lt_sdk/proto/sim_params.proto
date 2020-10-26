@@ -1,0 +1,217 @@
+syntax = "proto3";
+package light;
+
+// Analog/photonics params
+message AnalogSpecs {
+  // ADC precision is equal to hw_spec.output_precision
+  float adc_ref_volt = 3;  // ADC reference voltage, in volt
+  float adc_noise_factor = 4;
+
+  float tia_supply_volt =
+      5;  // TIA supply voltage, should be equal to adc_ref_volt, in volt
+  float tia_bias_volt = 6;  // Should be 1/2 * tia_supply_volt
+  float tia_noise_factor = 7;
+  repeated float tia_gains = 8;  // A set of accessible TIA gains
+  float tia_resistance = 26;     // In ohm
+
+  // Factor for converting PD input (in watt) to current (in ampere)
+  float pd_conversion_factor = 9;  // In ampere/watt
+
+  float data_noise_factor = 24;
+  float weight_noise_factor = 25;
+  bool enable_pd_noise = 27;
+
+  float laser_power = 15;  // Laser power in watt
+
+  float data_dac_res = 16;
+  float weight_dac_res =
+      17;  // Bit resolution of the drive of positive OR negative arm
+
+  string data_lut_file = 22;    // LUT for data modulator
+  string weight_lut_file = 23;  // LUT for weight modulator
+  float expected_laser_power =
+      28;  // The laser power we want to have enough signal strength at TIAs.
+           // Not used during inference.
+
+  float bit_error_rate = 29;
+  float fab_variation = 30;  // Full range of fabrication variations of weight
+                             // modulators/directional couplers
+}
+
+message UsimParams {
+  int32 crossbar_latency = 1;
+  int32 core_to_broadcast_latency = 2;
+  int32 broadcast_to_core_latency = 3;
+  int32 core_rx_latency = 4;
+  int32 inst_iss_to_core_latency = 5;
+  int32 hop_latency = 6;
+  int32 internal_core_latency = 10;
+
+  int32 num_inst_iss_ports = 7;
+  int32 num_umem_ports = 8;
+
+  int32 internal_network_transaction_size = 9;  // Size in bytes?
+}
+
+message ArchitectureParams {
+  float clock_frequency = 1;   // in MHz.
+  float modulation_rate = 2;   // in MHz.
+  float memory_bandwidth = 4;  // Bytes/sec
+  float memory_latency_ns = 5;
+  int32 num_memory_channels = 21;  // per core
+
+  // e.g. PCIe, Bytes/sec
+  float host_to_device_bandwidth = 6;
+  float host_to_device_latency_ns = 7;
+  int32 num_io_ports = 28;
+
+  // Can start an opu op after APW has run for this time.
+  int32 load_weights_ns = 8;
+
+  // Can't run APW's faster than this period.
+  int32 weight_settling_ns = 17;
+
+  float opu_latency_clks = 10;
+
+  int32 lookahead_window = 11;
+  int32 issue_clocks = 12;
+  bool parallel_issue = 13;
+
+  int32 umem_ports_per_bank = 22;
+  int32 load_weights_input_ports = 26;
+
+  enum UarchType {
+    // unchained
+    UNCONSTRAINED = 0;
+    HETERO_INSTR = 1;
+    HOMO_INSTR = 2;
+
+    // chained
+    HOMO_CHAINED_FULL = 3;
+    HOMO_CHAINED_STATIC = 4;
+    HETERO_CHAINED_FULL = 5;
+    HETERO_CHAINED_STATIC = 6;
+
+    MOSAIC_BRAVO = 7;
+  }
+  UarchType uarch = 15;
+
+  enum InterconnectType {
+    ITX_INVALID = 0;
+    ITX_XBAR = 1;
+    ITX_RING = 2;
+  }
+  InterconnectType interconnect = 19;
+  int32 num_rings = 20;  // set if using ITX_RING
+
+  // Number of unit replicas.  What this number is depends on the particular
+  // uarch being used. Doesn't include the OPU unit.
+  int32 num_uarch_units = 16;
+
+  enum ArchType {
+    INVALID = 0;
+    SERIAL = 1;
+    PIPELINED = 2;
+    VIRTUAL = 3;  // Doesn't model arch constraints.
+    USIM = 4;
+  }
+
+  ArchType arch_type = 23;
+
+  bool add_dequant_bias_before_accumulate = 24;
+
+  UsimParams usim_params = 25;
+
+  bool pack_hostmem = 27;
+}
+
+message PowerModel {
+  // assume units in pJ are pJ per BIT.
+  float opu_tx_pj = 1;  // digital side up to dac
+  float opu_rx_pj = 2;  // digital side after adc
+  float opu_adc_pj = 3;
+  float opu_dac_pj = 4;
+  float sram_read_pj = 5;
+  float sram_write_pj = 6;
+  float alu_op_pj = 7;
+  float dram_read_pj = 8;
+  float dram_write_pj = 9;
+  float onchip_interconnect_pj = 10;
+
+  // weights driving
+  float wx_voltage = 11;
+  float wx_overhead_ma = 12;
+  float wx_lp_max_ma = 13;     // low power driver
+  float wx_hp_max_ma = 16;     // high power driver
+  int32 wx_cutoff_value = 17;  // lower than this, use low power driver
+
+  // static power
+  float laser_w = 14;
+  float misc_power_w = 15;
+}
+
+message SimulationParams {
+  // fixed error
+  repeated float fixed_imbalance = 1;
+  repeated float fixed_error = 2;
+
+  ArchitectureParams arch_params = 6;
+  PowerModel power = 7;
+
+  // compiled batch size must be set to a value > 0 when it gets to the
+  // inference server. When using PerformanceSweeps, it will be set by the
+  // workload, or sw_config.sweepinfo.num_inference_samples during inference, if
+  // set.
+  int32 compiled_batch_size = 8;
+  AnalogSpecs analog_params = 11;
+
+  int32 num_runtime_threads = 12;
+  int32 num_calib_measurements = 13;
+
+  // If true, don't actually compute resulting tensors.
+  bool perf_only = 14;
+
+  // Used for perfsim
+  PerfSimParams perf_params = 15;
+}
+
+message CommonArchParams {
+  float clock_frequency = 1;  // in MHz.
+}
+
+message MosaicParams {
+  enum ResourceType {
+    RSC_INVALID = 0;
+    RSC_MATMUL = 1;
+    RSC_WSU = 2;
+    RSC_ALU = 3;
+    RSC_UMEM_RD = 4;
+    RSC_UMEM_WR = 5;
+    RSC_IO = 6;
+  }
+
+  // Key is ResourceType
+  map<int32, int32> num_resources = 1;
+
+  int32 issue_window_size = 2;
+  int32 issue_clocks = 3;
+  int32 apply_weights_clocks = 4;
+  int32 off_chip_move_latency = 5;
+  int32 per_core_io_bandwidth = 6;  // in MBps
+  int32 matmul_latency_clocks = 7;
+
+  enum EncodingType {
+    ENC_NONE = 0;
+    ENC_PARITY = 1;
+    ENC_FULL = 2;
+  }
+  EncodingType encoding = 8;
+}
+
+message PerfSimParams {
+  CommonArchParams common = 1;
+
+  oneof model_class {
+    MosaicParams mosaic = 2;
+  }
+}
